@@ -1,0 +1,14 @@
+# Secrets — never commit your real key
+assistant/.env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ADK / local session artifacts
+*.db
+.adk/
