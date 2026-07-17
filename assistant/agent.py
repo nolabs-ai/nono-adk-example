@@ -14,7 +14,6 @@ import ast
 import datetime
 import operator
 import os
-import random
 import stat
 import zoneinfo
 
@@ -99,22 +98,6 @@ def calculate(expression: str) -> dict:
             "error": f"Could not evaluate {expression!r}. Use numbers and + - * / // % ** ( ).",
         }
     return {"status": "ok", "expression": expression, "result": result}
-
-
-def roll_dice(sides: int = 6, count: int = 1) -> dict:
-    """Roll one or more dice.
-
-    Args:
-        sides: Number of sides per die (default 6).
-        count: How many dice to roll (default 1).
-
-    Returns:
-        A dict with each roll and the total, or an "error" key on bad input.
-    """
-    if sides < 1 or count < 1:
-        return {"status": "error", "error": "sides and count must both be >= 1."}
-    rolls = [random.randint(1, sides) for _ in range(count)]
-    return {"status": "ok", "rolls": rolls, "total": sum(rolls)}
 
 
 def _in_nono_sandbox() -> bool:
@@ -223,13 +206,13 @@ root_agent = Agent(
     model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
     name="local_assistant",
     description=(
-        "A helpful local assistant that can tell the time, do arithmetic, roll "
-        "dice, and list the contents of folders on the local machine."
+        "A helpful local assistant that can tell the time, do arithmetic, and "
+        "list the contents of folders on the local machine."
     ),
     instruction=(
         "You are a friendly, concise assistant running locally on the user's machine. "
         "When the user asks something a tool can answer (the current time, arithmetic, "
-        "rolling dice, listing a folder's contents), call the appropriate tool rather "
+        "listing a folder's contents), call the appropriate tool rather "
         "than guessing. When listing a folder, present the results readably (e.g. "
         "directories first, then files). "
         "Summarise tool results in plain language. If a tool returns an error, explain "
@@ -239,5 +222,5 @@ root_agent = Agent(
         'outside its allow-list, then relay the guidance in "message_for_user". Do '
         "not retry the operation or attempt workarounds."
     ),
-    tools=[get_current_time, calculate, roll_dice, list_folder],
+    tools=[get_current_time, calculate, list_folder],
 )

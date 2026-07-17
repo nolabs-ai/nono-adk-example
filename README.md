@@ -5,11 +5,10 @@ agent that runs **entirely locally** against the **Gemini API**. It uses a free
 Google AI Studio API key — **no Google Cloud project, no Vertex AI, no billing
 setup required**.
 
-The agent (`local_assistant`) ships with four example tools:
+The agent (`local_assistant`) ships with three example tools:
 
 - `get_current_time` — current time for any IANA timezone
 - `calculate` — safe basic arithmetic
-- `roll_dice` — roll N dice with S sides
 - `list_folder` — list files and subfolders in a directory
 
 ## Project layout
@@ -77,7 +76,6 @@ Then pick `assistant` from the dropdown.
 
 - "What time is it in Tokyo?"
 - "What's (17 * 23) + 100?"
-- "Roll 3 six-sided dice."
 - "What's in my current folder?" or "List the files in ~/Downloads."
 
 ## Running under the nono sandbox
