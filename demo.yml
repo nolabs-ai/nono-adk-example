@@ -1,0 +1,8 @@
+speed: 20
+delay: 50
+clear: true
+
+
+steps:
+  - text: "nono run --profile ./policy.json --allow-cwd --credential gemini -- adk run assistant"
+  - text: "nono run --profile ./policy.json --allow-cwd --credential gemini -- uv run python3 main.py"
