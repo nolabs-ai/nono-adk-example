@@ -15,6 +15,9 @@ import datetime
 import operator
 import os
 import stat
+import urllib.error
+import urllib.parse
+import urllib.request
 import zoneinfo
 
 from google.adk.agents import Agent
@@ -114,7 +117,7 @@ def _permission_denied(path: str, resolved: str, exc: OSError) -> dict:
 
     Inside a nono sandbox the denial is a kernel-enforced restriction that cannot
     be worked around from within the session, so we flag it with "sandbox":
-    "nono" and hand the model a plain-language message to relay to the user.
+    "nono" and hand the model a plain-language message as context for its response.
     """
     result = {
         "status": "error",
@@ -197,6 +200,95 @@ def list_folder(path: str = ".") -> dict:
     }
 
 
+def _network_denied(url: str, detail: str) -> dict:
+    """Build a result for a request rejected by nono's network proxy."""
+    return {
+        "status": "error",
+        "error": f"Network access denied for {url!r}",
+        "sandbox": "nono",
+        "message_for_user": (
+            "This domain is blocked by the nono network policy. nono enforces "
+            "the domain rules in its supervised proxy, so the request cannot be "
+            "retried or bypassed from inside the session."
+        ),
+        "detail": detail,
+    }
+
+
+def _is_nono_network_denial(detail: str) -> bool:
+    """Return whether an error contains one of nono's proxy denial reasons."""
+    normalized = detail.lower()
+    return any(
+        marker in normalized
+        for marker in (
+            "is in the deny list",
+            "is not in the allowlist",
+            "is in the link-local range",
+        )
+    )
+
+
+def fetch_url(url: str) -> dict:
+    """Fetch a public HTTP or HTTPS URL through nono's supervised proxy.
+
+    The response body is limited to 4 KiB because this is a small demonstration
+    tool, not a general-purpose downloader.
+
+    Args:
+        url: An absolute HTTP or HTTPS URL, e.g. "https://example.com".
+
+    Returns:
+        A dict containing the HTTP status, content type, and the first 4 KiB of
+        text. If nono blocks the domain, returns an error with "sandbox":
+        "nono" and a plain-language message for the user.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return {
+            "status": "error",
+            "error": "Use an absolute http:// or https:// URL.",
+        }
+    if parsed.username or parsed.password:
+        return {
+            "status": "error",
+            "error": "URLs containing credentials are not accepted.",
+        }
+
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "adkdemo/0.1"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            body = response.read(4096)
+            content_type = response.headers.get_content_type()
+            charset = response.headers.get_content_charset() or "utf-8"
+            return {
+                "status": "ok",
+                "url": response.geturl(),
+                "http_status": response.status,
+                "content_type": content_type,
+                "body": body.decode(charset, errors="replace"),
+                "truncated": len(body) == 4096,
+            }
+    except urllib.error.HTTPError as exc:
+        detail = f"HTTP {exc.code}: {exc.reason}"
+        if _in_nono_sandbox() and _is_nono_network_denial(detail):
+            return _network_denied(url, detail)
+        return {"status": "error", "error": detail}
+    except urllib.error.URLError as exc:
+        detail = str(exc.reason)
+        if _in_nono_sandbox() and _is_nono_network_denial(detail):
+            return _network_denied(url, detail)
+        return {"status": "error", "error": f"Request failed: {detail}"}
+    except PermissionError as exc:
+        if _in_nono_sandbox():
+            return _network_denied(url, str(exc))
+        return {"status": "error", "error": f"Permission denied: {exc}"}
+    except TimeoutError:
+        return {"status": "error", "error": "Request timed out after 10 seconds."}
+
+
 # --- Agent -----------------------------------------------------------------
 
 root_agent = Agent(
@@ -207,20 +299,20 @@ root_agent = Agent(
     name="local_assistant",
     description=(
         "A helpful local assistant that can tell the time, do arithmetic, and "
-        "list the contents of folders on the local machine."
+        "use sandboxed tools for local folders and HTTP requests."
     ),
     instruction=(
         "You are a friendly, concise assistant running locally on the user's machine. "
         "When the user asks something a tool can answer (the current time, arithmetic, "
-        "listing a folder's contents), call the appropriate tool rather "
+        "listing a folder's contents, fetching an HTTP URL), call the appropriate tool rather "
         "than guessing. When listing a folder, present the results readably (e.g. "
         "directories first, then files). "
         "Summarise tool results in plain language. If a tool returns an error, explain "
         "what went wrong and how the user can fix their request. "
         'If a tool result contains \'"sandbox": "nono"\', tell the user plainly that '
-        "you are running inside a nono security sandbox and the requested path is "
-        'outside its allow-list, then relay the guidance in "message_for_user". Do '
+        "you are running inside a nono security sandbox and the requested resource is "
+        'blocked by its policy, then relay the guidance in "message_for_user". Do '
         "not retry the operation or attempt workarounds."
     ),
-    tools=[get_current_time, calculate, list_folder],
+    tools=[get_current_time, calculate, list_folder, fetch_url],
 )

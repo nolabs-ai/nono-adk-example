@@ -1,101 +1,169 @@
-# adkdemo — a local Google ADK agent (Gemini API, no Google Cloud)
+# nono Google ADK demo
 
-A minimal [Google Agent Development Kit (ADK)](https://google.github.io/adk-docs/)
-agent that runs **entirely locally** against the **Gemini API**. It uses a free
-Google AI Studio API key — **no Google Cloud project, no Vertex AI, no billing
-setup required**.
+This repository demonstrates running a local [Google Agent Development Kit
+(ADK)](https://google.github.io/adk-docs/) agent inside a
+[nono](https://github.com/nolabs-ai/nono) security sandbox.
 
-The agent (`local_assistant`) ships with three example tools:
+The demo shows three parts of nono working together:
 
-- `get_current_time` — current time for any IANA timezone
-- `calculate` — safe basic arithmetic
-- `list_folder` — list files and subfolders in a directory
+- **Filesystem isolation:** the agent can access the project directory, but
+  paths outside the allow-list are blocked by the operating system.
+- **Brokered networking:** Gemini traffic goes through nono's supervised proxy,
+  where outbound domains can be allowed or denied.
+- **Credential protection:** the real Gemini API key stays in macOS Keychain.
+  The sandbox sees a short-lived phantom credential, which nono replaces with
+  the real key only on an approved request to the Gemini API.
 
-## Project layout
+The example ADK agent is named `local_assistant` and has tools for telling the
+time, evaluating basic arithmetic, listing a folder, and fetching an HTTP URL.
 
-```
-adkdemo/
-├── assistant/
-│   ├── __init__.py        # exposes the agent to the ADK CLI
-│   ├── agent.py           # defines root_agent + its tools
-│   ├── .env.example       # template for your API key
-│   └── .env               # (you create this — gitignored)
-├── main.py                # standalone runner: `python main.py`
-├── requirements.txt
-└── README.md
-```
+## Prerequisites
+
+- macOS
+- `nono`
+- Python and `uv`
+- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
 
 ## Setup
 
-1. **Create a virtual environment and install dependencies:**
-
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-2. **Get a free Gemini API key** from Google AI Studio (no cloud project needed):
-   <https://aistudio.google.com/apikey>
-
-3. **Add your key:**
-
-   ```bash
-   cp assistant/.env.example assistant/.env
-   # then edit assistant/.env and paste your key into GOOGLE_API_KEY
-   ```
-
-   The important line is `GOOGLE_GENAI_USE_VERTEXAI=FALSE` — that is what tells
-   ADK to use the Gemini API directly instead of Vertex AI / Google Cloud.
-
-## Run it
-
-You have three ways to run the same agent — all local:
-
-**A) Standalone Python script (simplest):**
+Create and activate the virtual environment, then install the dependencies:
 
 ```bash
-python main.py
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-**B) ADK terminal chat:**
+Store the Gemini key in macOS Keychain under nono's `gemini` credential
+account:
 
 ```bash
-adk run assistant
+security add-generic-password -U -s "nono" -a "gemini" -w
 ```
 
-**C) ADK web UI** (opens a local chat interface at http://localhost:8000):
+Enter the Gemini API key when prompted. Do not put the real key in
+`assistant/.env`.
+
+## Run the demo
+
+Run the agent through the ADK terminal:
 
 ```bash
-adk web
+nono run --profile ./policy.json --allow-cwd --credential gemini -- adk run assistant
 ```
 
-Then pick `assistant` from the dropdown.
+Or run the standalone Python chat loop:
 
-## Try asking
+```bash
+nono run \
+  --profile ./policy.json \
+  --allow-cwd \
+  --credential gemini \
+  -- uv run python3 main.py
+```
 
-- "What time is it in Tokyo?"
-- "What's (17 * 23) + 100?"
-- "What's in my current folder?" or "List the files in ~/Downloads."
+`--credential gemini` loads the real key from Keychain and gives the sandbox a
+phantom credential. `--profile ./policy.json` enables the supervised network
+proxy, and `--allow-cwd` grants the agent access to this project directory.
 
-## Running under the nono sandbox
+At startup, nono prints the effective capabilities before applying the sandbox:
 
-The `list_folder` tool is sandbox-aware. If it hits a permission error
-(`EPERM`/`EACCES`) while running inside a nono security sandbox — detected via
-the `NONO_CAP_FILE` environment variable — it
-returns a `"sandbox": "nono"` flag and a `message_for_user`, and the agent is
-instructed to tell you the path is outside the sandbox's allow-list instead of
-silently retrying. To grant access, restart the session with the path allowed
-(`nono run --allow <path> -- <command>`) or diagnose it with
-`nono why --path <path> --op read`.
+```text
+nono v0.68.0
+Capabilities:
+────────────────────────────────────────────────────
+ r+w  /Users/lukehinds/.cache/uv (dir)
+ r+w  /Users/lukehinds/dev/nono-workspace/adkdemo (dir)
+     + 42 system/group paths (-v to show)
+ net  proxy
+────────────────────────────────────────────────────
 
-Outside a nono sandbox, a permission error is reported as an ordinary
-"Permission denied" without the sandbox hint.
+mode supervised (proxy, supervisor)
+Applying sandbox...
+```
 
-## Customising
+The agent can then use Gemini normally:
 
-- **Swap the model:** set `GEMINI_MODEL` in `assistant/.env`
-  (e.g. `gemini-2.5-pro`, `gemini-2.0-flash`).
-- **Add a tool:** write a plain Python function with a clear docstring and type
-  hints in `assistant/agent.py`, then add it to the `tools=[...]` list.
-- **Change behaviour:** edit the `instruction` string on `root_agent`.
+```text
+Running agent local_assistant, type exit to exit.
+[user]: hello
+[local_assistant]: Hello! How can I help you today?
+```
+
+## Prove the filesystem sandbox
+
+Ask the agent to read a directory that was not granted:
+
+```text
+you> list files in ~/Documents
+
+assistant> I am running inside a nono security sandbox and the requested path
+`~/Documents` is outside its allow-list. This folder is outside the nono
+security sandbox's allow-list. nono enforces this at the OS level, so it cannot
+be bypassed from inside the session — do not retry. To grant access, the user
+can restart with `nono run --allow /Users/lukehinds/Documents -- <command>`, or
+run `nono why --path /Users/lukehinds/Documents --op read` to see exactly why
+it was blocked.
+```
+
+This denial is enforced by nono at the OS boundary. The agent cannot retry its
+way around it. To deliberately grant that directory on the next run, add:
+
+```bash
+--allow "$HOME/Documents"
+```
+
+To inspect the policy decision without granting access:
+
+```bash
+nono why --path "$HOME/Documents" --op read
+```
+
+## Prove the network sandbox
+
+The agent's `fetch_url` tool makes HTTP requests from inside the sandbox. The
+demo policy allows Google (including the `www.google.com` redirect target) and
+explicitly denies `example.com`:
+
+```json
+"allow_domain": [
+  "google.com",
+  "*.google.com"
+],
+"deny_domain": ["example.com"]
+```
+
+Ask the agent to fetch one denied domain and one allowed domain:
+
+```text
+[user]: fetch https://example.com
+
+[local_assistant]: I am running inside a nono security sandbox and the requested
+resource is blocked by its policy. This domain is blocked by the nono network
+policy. nono enforces the domain rules in its supervised proxy, so the request
+cannot be retried or bypassed from inside the session.
+
+[user]: fetch https://google.com
+
+[local_assistant]: I successfully fetched https://www.google.com/ (HTTP 200,
+text/html).
+```
+
+For `example.com`, nono's supervised proxy returns:
+
+```text
+403 Forbidden: host example.com is in the deny list
+```
+
+`fetch_url` recognizes that denial and returns a structured `"sandbox":
+"nono"` result to the model. The real network request is rejected by the proxy;
+the agent cannot retry around the rule. The same tool follows the allowed
+`google.com` redirect and receives a normal `200 OK` response from
+`www.google.com`.
+
+## What is in the demo?
+
+- `policy.json` defines the nono sandbox and supervised network policy.
+- `assistant/agent.py` defines the ADK agent and its filesystem and HTTP tools.
+- `main.py` provides a standalone interactive runner.
+- `assistant/__init__.py` exposes the agent to the `adk` CLI.
