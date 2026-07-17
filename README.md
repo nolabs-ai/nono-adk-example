@@ -4,6 +4,8 @@ This repository demonstrates running a local [Google Agent Development Kit
 (ADK)](https://google.github.io/adk-docs/) agent inside a
 [nono](https://github.com/nolabs-ai/nono) security sandbox.
 
+![nono Google ADK demo](assets/2026-07-17%2020.56.52.gif)
+
 The demo shows three parts of nono working together:
 
 - **Filesystem isolation:** the agent can access the project directory, but
