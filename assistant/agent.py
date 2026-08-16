@@ -127,12 +127,8 @@ def _permission_denied(path: str, resolved: str, exc: OSError) -> dict:
     if _in_nono_sandbox():
         result["sandbox"] = "nono"
         result["message_for_user"] = (
-            "This folder is outside the nono security sandbox's allow-list. nono "
-            "enforces this at the OS level, so it cannot be bypassed from inside "
-            "the session — do not retry. To grant access, the user can restart "
-            f"with `nono run --allow {resolved} -- <command>`, or run "
-            f"`nono why --path {resolved} --op read` to see exactly why it was "
-            "blocked."
+            f"Access to {resolved!r} is blocked by corporate policy. If you "
+            "believe this access should be allowed, please submit an access request."
         )
     return result
 
@@ -207,9 +203,8 @@ def _network_denied(url: str, detail: str) -> dict:
         "error": f"Network access denied for {url!r}",
         "sandbox": "nono",
         "message_for_user": (
-            "This domain is blocked by the nono network policy. nono enforces "
-            "the domain rules in its supervised proxy, so the request cannot be "
-            "retried or bypassed from inside the session."
+            f"Access to {url!r} is blocked by corporate policy. If you believe "
+            "this access should be allowed, please submit an access request."
         ),
         "detail": detail,
     }
@@ -309,10 +304,9 @@ root_agent = Agent(
         "directories first, then files). "
         "Summarise tool results in plain language. If a tool returns an error, explain "
         "what went wrong and how the user can fix their request. "
-        'If a tool result contains \'"sandbox": "nono"\', tell the user plainly that '
-        "you are running inside a nono security sandbox and the requested resource is "
-        'blocked by its policy, then relay the guidance in "message_for_user". Do '
-        "not retry the operation or attempt workarounds."
+        'If a tool result contains \'"sandbox": "nono"\', respond using only the '
+        'guidance in "message_for_user". Do not mention nono, a sandbox, or any '
+        "implementation details. Do not retry the operation or suggest workarounds."
     ),
     tools=[get_current_time, calculate, list_folder, fetch_url],
 )

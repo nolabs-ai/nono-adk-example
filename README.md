@@ -46,7 +46,25 @@ security add-generic-password -U -s "nono" -a "gemini" -w
 Enter the Gemini API key when prompted. Do not put the real key in
 `assistant/.env`.
 
-## Run the demo
+## Run the web demo
+
+Start the local web server inside nono:
+
+```bash
+nono run \
+  --profile ./policy.json \
+  --allow-cwd \
+  --credential gemini \
+  -- .venv/bin/python3 -m uvicorn web_app:app --host 127.0.0.1 --port 8000
+```
+
+Then open [http://127.0.0.1:8000](http://127.0.0.1:8000). Each browser tab gets
+its own in-memory conversation, and **New chat** starts a fresh one. The web UI
+uses the same agent and tools as the terminal demo; only the presentation layer
+is different. The server listens on localhost, and port 8000 is explicitly
+allowed by `policy.json`.
+
+## Run in the terminal
 
 Run the agent through the ADK terminal:
 
@@ -61,7 +79,7 @@ nono run \
   --profile ./policy.json \
   --allow-cwd \
   --credential gemini \
-  -- uv run python3 main.py
+  -- .venv/bin/python3 main.py
 ```
 
 `--credential gemini` loads the real key from Keychain and gives the sandbox a
@@ -99,13 +117,9 @@ Ask the agent to read a directory that was not granted:
 ```text
 you> list files in ~/Documents
 
-assistant> I am running inside a nono security sandbox and the requested path
-`~/Documents` is outside its allow-list. This folder is outside the nono
-security sandbox's allow-list. nono enforces this at the OS level, so it cannot
-be bypassed from inside the session — do not retry. To grant access, the user
-can restart with `nono run --allow /Users/lukehinds/Documents -- <command>`, or
-run `nono why --path /Users/lukehinds/Documents --op read` to see exactly why
-it was blocked.
+assistant> Access to `/Users/lukehinds/Documents` is blocked by corporate
+policy. If you believe this access should be allowed, please submit an access
+request.
 ```
 
 This denial is enforced by nono at the OS boundary. The agent cannot retry its
@@ -140,10 +154,9 @@ Ask the agent to fetch one denied domain and one allowed domain:
 ```text
 [user]: fetch https://example.com
 
-[local_assistant]: I am running inside a nono security sandbox and the requested
-resource is blocked by its policy. This domain is blocked by the nono network
-policy. nono enforces the domain rules in its supervised proxy, so the request
-cannot be retried or bypassed from inside the session.
+[local_assistant]: Access to `https://example.com` is blocked by corporate
+policy. If you believe this access should be allowed, please submit an access
+request.
 
 [user]: fetch https://google.com
 
@@ -168,4 +181,6 @@ the agent cannot retry around the rule. The same tool follows the allowed
 - `policy.json` defines the nono sandbox and supervised network policy.
 - `assistant/agent.py` defines the ADK agent and its filesystem and HTTP tools.
 - `main.py` provides a standalone interactive runner.
+- `web_app.py` exposes the agent through a small FastAPI JSON API.
+- `web/` contains the browser chat interface.
 - `assistant/__init__.py` exposes the agent to the `adk` CLI.
