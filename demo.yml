@@ -5,5 +5,5 @@ clear: true
 setup:
   - "source .venv/bin/activate"
 steps:
-  - text: "nono run --profile ./policy.json --allow-cwd --credential gemini -- adk run assistant"
-  - text: "nono run --profile ./policy.json --allow-cwd --credential gemini -- uv run python3 main.py"
+  - text: "nono run --profile ./policy.json --allow-cwd --credential gemini -- .venv/bin/python3 -m uvicorn web_app:app --host 127.0.0.1 --port 8000"
+  - text: "nono run --profile ./policy.json --allow-cwd --credential gemini -- .venv/bin/python3 main.py"

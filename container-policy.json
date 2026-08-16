@@ -1,0 +1,54 @@
+{
+  "extends": "python-dev",
+  "meta": {
+    "name": "adk-container",
+    "version": "1.0.0",
+    "description": "Sandboxed web demo with file-backed credential brokering",
+    "author": "nolabs-ai"
+  },
+  "filesystem": {
+    "deny": [
+      "/run/secrets"
+    ]
+  },
+  "network": {
+    "network_profile": null,
+    "allow_domain": [
+      "generativelanguage.googleapis.com",
+      "api.openai.com",
+      "api.anthropic.com"
+    ],
+    "deny_domain": [
+      "example.com"
+    ],
+    "listen_port": [
+      8000
+    ],
+    "custom_credentials": {
+      "google_gemini": {
+        "upstream": "https://generativelanguage.googleapis.com",
+        "credential_key": "file:///run/secrets/provider_api_key",
+        "env_var": "GOOGLE_API_KEY",
+        "inject_header": "x-goog-api-key",
+        "credential_format": "{}"
+      },
+      "openai": {
+        "upstream": "https://api.openai.com/v1",
+        "credential_key": "file:///run/secrets/provider_api_key",
+        "env_var": "OPENAI_API_KEY",
+        "inject_header": "Authorization",
+        "credential_format": "Bearer {}"
+      },
+      "anthropic": {
+        "upstream": "https://api.anthropic.com",
+        "credential_key": "file:///run/secrets/provider_api_key",
+        "env_var": "ANTHROPIC_API_KEY",
+        "inject_header": "x-api-key",
+        "credential_format": "{}"
+      }
+    }
+  },
+  "workdir": {
+    "access": "read"
+  }
+}
