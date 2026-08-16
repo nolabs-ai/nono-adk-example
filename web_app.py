@@ -30,10 +30,14 @@ BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
 ENV_PATH = BASE_DIR / "assistant" / ".env"
 
-# Load credentials before importing the agent: its model is selected at import
-# time from GEMINI_MODEL.
+# Load configuration before importing the agent: its provider and model are
+# selected at import time.
 load_dotenv(ENV_PATH)
 
+from assistant.agent import AGENT_MODEL  # noqa: E402
+from assistant.agent import AGENT_PROVIDER  # noqa: E402
+from assistant.agent import API_KEY_ENV  # noqa: E402
+from assistant.agent import provider_api_key_is_available  # noqa: E402
 from assistant.agent import root_agent  # noqa: E402
 
 
@@ -114,10 +118,11 @@ class AgentRuntime:
 
 
 def _check_api_key() -> None:
-    if not os.environ.get("GOOGLE_API_KEY"):
+    if not provider_api_key_is_available():
         raise RuntimeError(
-            f"No GOOGLE_API_KEY found. Configure {ENV_PATH} or launch with "
-            "`nono --credential gemini` as described in the README."
+            f"No {API_KEY_ENV} found for provider {AGENT_PROVIDER!r}. "
+            f"Launch nono with `--credential {AGENT_PROVIDER}` as described "
+            "in the README; nono will inject a phantom value."
         )
 
 
@@ -145,7 +150,8 @@ async def index() -> FileResponse:
 async def agent_info() -> dict[str, str]:
     return {
         "name": root_agent.name,
-        "model": str(root_agent.model),
+        "provider": AGENT_PROVIDER,
+        "model": AGENT_MODEL,
     }
 
 

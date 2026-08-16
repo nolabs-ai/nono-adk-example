@@ -1,6 +1,7 @@
 # Secrets — never commit your real key
 assistant/.env
 .env
+.docker-secret.*
 
 # Python
 __pycache__/

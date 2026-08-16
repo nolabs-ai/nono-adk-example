@@ -47,7 +47,9 @@
     "allow_http2": false,
     "allow_domain": [
       "google.com",
-      "*.google.com"
+      "*.google.com",
+      "api.openai.com",
+      "api.anthropic.com"
     ],
     "deny_domain": [
       "example.com"

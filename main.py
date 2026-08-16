@@ -1,11 +1,11 @@
-"""Standalone local runner for the ADK agent — no `adk` CLI, no Google Cloud.
+"""Standalone local runner for the multi-provider ADK agent.
 
 Run an interactive chat loop straight from Python:
 
     python main.py
 
 This uses ADK's Runner with an in-memory session store, so nothing is persisted
-and nothing external is required beyond a Gemini API key in `assistant/.env`.
+and nothing external is required beyond a provider API credential.
 """
 
 import asyncio
@@ -16,12 +16,16 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-# Load assistant/.env BEFORE importing the agent, so GOOGLE_API_KEY /
-# GOOGLE_GENAI_USE_VERTEXAI / GEMINI_MODEL are set when the agent is built.
+# Load assistant/.env before importing the agent so its provider and model are
+# selected when the agent is built.
 _ENV_PATH = os.path.join(os.path.dirname(__file__), "assistant", ".env")
 load_dotenv(_ENV_PATH)
 
-from assistant.agent import root_agent  # noqa: E402  (import after load_dotenv)
+from assistant.agent import AGENT_MODEL  # noqa: E402  (import after load_dotenv)
+from assistant.agent import AGENT_PROVIDER  # noqa: E402
+from assistant.agent import API_KEY_ENV  # noqa: E402
+from assistant.agent import provider_api_key_is_available  # noqa: E402
+from assistant.agent import root_agent  # noqa: E402
 
 APP_NAME = "local_assistant"
 USER_ID = "local_user"
@@ -29,11 +33,11 @@ SESSION_ID = "local_session"
 
 
 def _check_api_key() -> None:
-    if not os.environ.get("GOOGLE_API_KEY"):
+    if not provider_api_key_is_available():
         raise SystemExit(
-            "No GOOGLE_API_KEY found.\n"
-            f"Create {_ENV_PATH} (copy assistant/.env.example) and add your key from\n"
-            "https://aistudio.google.com/apikey"
+            f"No {API_KEY_ENV} found for provider {AGENT_PROVIDER!r}.\n"
+            f"Launch nono with `--credential {AGENT_PROVIDER}` as described "
+            "in the README; nono will inject a phantom value."
         )
 
 
@@ -59,7 +63,10 @@ async def main() -> None:
         agent=root_agent, app_name=APP_NAME, session_service=session_service
     )
 
-    print(f"Chatting with '{root_agent.name}' (model: {root_agent.model}).")
+    print(
+        f"Chatting with '{root_agent.name}' "
+        f"(provider: {AGENT_PROVIDER}, model: {AGENT_MODEL})."
+    )
     print("Type your message. Use 'exit' or Ctrl-D to quit.\n")
 
     while True:

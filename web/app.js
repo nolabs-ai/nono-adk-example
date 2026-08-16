@@ -134,7 +134,7 @@ async function initialize() {
       createSession(),
     ]);
     agentName.textContent = agent.name.replaceAll("_", " ");
-    modelName.textContent = agent.model;
+    modelName.textContent = `${agent.provider} · ${agent.model}`;
   } catch (error) {
     modelName.textContent = "Offline";
     addMessage("assistant", `Could not connect to the agent: ${error.message}`);

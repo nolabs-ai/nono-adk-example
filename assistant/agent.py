@@ -1,19 +1,20 @@
-"""A minimal Google ADK agent that runs locally against the Gemini API.
+"""A minimal provider-neutral Google ADK agent that runs locally.
 
-This agent does NOT require Google Cloud / Vertex AI. It talks straight to the
-Gemini API using a Google AI Studio API key. The switch that controls this lives
-in `assistant/.env`:
+The provider and model are selected in `assistant/.env`:
 
-    GOOGLE_GENAI_USE_VERTEXAI=FALSE   # use the Gemini API (no GCP needed)
-    GOOGLE_API_KEY=<your key>         # from https://aistudio.google.com/apikey
+    AGENT_PROVIDER=gemini             # gemini, openai, or anthropic
+    AGENT_MODEL=gemini-2.5-flash
 
-ADK exposes `root_agent` (this module's `root_agent`) to the `adk` CLI tools.
+Each provider uses ADK's native adapter and its official SDK; LiteLLM is not
+used. Credentials are injected at launch by nono. ADK exposes `root_agent`
+(this module's `root_agent`) to the `adk` CLI tools.
 """
 
 import ast
 import datetime
 import operator
 import os
+from pathlib import Path
 import stat
 import urllib.error
 import urllib.parse
@@ -21,6 +22,76 @@ import urllib.request
 import zoneinfo
 
 from google.adk.agents import Agent
+
+
+SUPPORTED_PROVIDERS = ("gemini", "openai", "anthropic")
+DEFAULT_MODELS = {
+    "gemini": "gemini-2.5-flash",
+    "openai": "gpt-5.4-mini",
+    "anthropic": "claude-sonnet-5",
+}
+PROVIDER_API_KEY_ENV = {
+    "gemini": "GOOGLE_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
+
+
+def _provider_name() -> str:
+    provider = os.environ.get("AGENT_PROVIDER", "gemini").strip().lower()
+    if provider == "google":
+        provider = "gemini"
+    if provider not in SUPPORTED_PROVIDERS:
+        choices = ", ".join(SUPPORTED_PROVIDERS)
+        raise ValueError(f"Unsupported AGENT_PROVIDER {provider!r}; use {choices}.")
+    return provider
+
+
+AGENT_PROVIDER = _provider_name()
+AGENT_MODEL = os.environ.get("AGENT_MODEL", "").strip()
+if not AGENT_MODEL and AGENT_PROVIDER == "gemini":
+    # Preserve the original demo's environment variable as a compatibility
+    # fallback while AGENT_MODEL becomes the provider-neutral setting.
+    AGENT_MODEL = os.environ.get("GEMINI_MODEL", "").strip()
+if not AGENT_MODEL:
+    AGENT_MODEL = DEFAULT_MODELS[AGENT_PROVIDER]
+API_KEY_ENV = PROVIDER_API_KEY_ENV[AGENT_PROVIDER]
+
+
+def provider_api_key_is_available() -> bool:
+    """Return whether the provider SDK can see its API-key variable.
+
+    Under nono this value is a session-scoped phantom token, not the real
+    provider key. Secret files are deliberately never read by the agent.
+    """
+    return bool(os.environ.get(API_KEY_ENV))
+
+
+def _build_model():
+    """Build an ADK-native model adapter without routing through LiteLLM."""
+    if AGENT_PROVIDER == "gemini":
+        # Bare Gemini model names resolve to ADK's native Gemini integration.
+        return AGENT_MODEL
+    if AGENT_PROVIDER == "openai":
+        try:
+            from google.adk.labs.openai import OpenAIResponsesLlm
+        except ImportError as exc:
+            raise RuntimeError(
+                "OpenAI support requires the `openai` package. "
+                "Run `pip install -r requirements.txt`."
+            ) from exc
+        return OpenAIResponsesLlm(model=AGENT_MODEL)
+
+    try:
+        # Use AnthropicLlm directly: ADK's public Claude shortcut targets
+        # Claude on Vertex AI, whereas this demo uses the Anthropic API.
+        from google.adk.models.anthropic_llm import AnthropicLlm
+    except ImportError as exc:
+        raise RuntimeError(
+            "Anthropic support requires the `anthropic` package. "
+            "Run `pip install -r requirements.txt`."
+        ) from exc
+    return AnthropicLlm(model=AGENT_MODEL)
 
 
 # --- Tools -----------------------------------------------------------------
@@ -287,14 +358,11 @@ def fetch_url(url: str) -> dict:
 # --- Agent -----------------------------------------------------------------
 
 root_agent = Agent(
-    # The model is read from GEMINI_MODEL if set, so you can swap it without
-    # editing code. Any Gemini API model id works, e.g. gemini-2.5-flash,
-    # gemini-2.5-pro, gemini-2.0-flash.
-    model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+    model=_build_model(),
     name="local_assistant",
     description=(
         "A helpful local assistant that can tell the time, do arithmetic, and "
-        "use sandboxed tools for local folders and HTTP requests."
+        "use policy-controlled tools for local folders and HTTP requests."
     ),
     instruction=(
         "You are a friendly, concise assistant running locally on the user's machine. "
