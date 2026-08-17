@@ -21,9 +21,8 @@ time, evaluating basic arithmetic, listing a folder, and fetching an HTTP URL.
 
 ## Prerequisites
 
-- For a native run: `nono` and Python 3.14 or later. The credential setup below
-  uses macOS Keychain.
-- For a container run: Docker; nono and Python are included in the image.
+- macOS with `nono` and Python 3.14 or later. The credential setup below uses
+  macOS Keychain.
 - An API key from [Google AI Studio](https://aistudio.google.com/apikey), the
   [OpenAI Platform](https://platform.openai.com/api-keys), or the
   [Claude Platform](https://platform.claude.com/settings/keys)
@@ -116,117 +115,6 @@ conversation, and **New chat** starts a fresh one. The web UI
 uses the same agent and tools as the terminal demo; only the presentation layer
 is different. The server listens on localhost, and port 8000 is explicitly
 allowed by `policy.json`.
-
-## Run with Docker
-
-The GitHub workflow publishes multi-platform images to GitHub Container
-Registry. The image includes nono, and its entrypoint always launches the web
-server as a sandboxed child of `nono run`:
-
-```text
-Docker -> nono supervisor -> sandboxed Python/Uvicorn child
-             |                         |
-             | reads real key          | sees only phantom key
-             v                         v
-      /run/secrets/provider_api_key   nono's loopback proxy
-```
-
-The real key must be available as `/run/secrets/provider_api_key` to the nono
-supervisor. It must not be passed with `--env GOOGLE_API_KEY`,
-`--env OPENAI_API_KEY`, or `--env ANTHROPIC_API_KEY`.
-
-### Docker Compose
-
-The included `compose.yaml` mounts `PROVIDER_API_KEY_FILE` as a read-only
-Compose secret. For OpenAI on macOS, reuse the key stored in Keychain through a
-temporary, owner-only file:
-
-```bash
-secret_file="$(mktemp "$PWD/.docker-secret.XXXXXX")"
-trap 'rm -f "$secret_file"' EXIT
-chmod 600 "$secret_file"
-security find-generic-password -w -s nono -a openai > "$secret_file"
-
-AGENT_PROVIDER=openai \
-AGENT_MODEL=gpt-5.4-mini \
-PROVIDER_API_KEY_FILE="$secret_file" \
-docker compose up
-```
-
-Replace `openai` with `gemini` or `anthropic` and select the matching model when
-using another provider. Stop the service with `docker compose down`.
-
-Compose receives only the file path in its host-side environment; it does not
-add the key to the container environment. The trusted nono supervisor reads the
-secret mount before sandboxing. The Python child gets a session-scoped phantom
-value in the provider's normal API-key variable and a base URL pointing at
-nono's loopback credential proxy, while Landlock denies it access to the mount.
-
-### Plain `docker run`
-
-Standalone `docker run` has no runtime `--secret` flag, so use a read-only bind
-mount from a protected file. This macOS example creates a temporary file in the
-project (a path Docker Desktop can share), fills it from Keychain without
-putting the key in the command line, and removes it when the shell exits:
-
-```bash
-secret_file="$(mktemp "$PWD/.docker-secret.XXXXXX")"
-trap 'rm -f "$secret_file"' EXIT
-chmod 600 "$secret_file"
-security find-generic-password -w -s nono -a openai > "$secret_file"
-
-docker run --rm \
-  --publish 127.0.0.1:8000:8000 \
-  --read-only \
-  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
-  --tmpfs /nono-state:rw,noexec,nosuid,size=16m,uid=10001,gid=10001,mode=0700 \
-  --cap-drop ALL \
-  --security-opt no-new-privileges \
-  --mount "type=bind,source=$secret_file,target=/run/secrets/provider_api_key,readonly" \
-  --env AGENT_PROVIDER=openai \
-  --env AGENT_MODEL=gpt-5.4-mini \
-  ghcr.io/nolabs-ai/nono-adk-example:latest
-```
-
-To build the image locally instead of pulling it:
-
-```bash
-docker build --tag nono-adk-example:local .
-```
-
-Then replace the GHCR image name in the `docker run` command with
-`nono-adk-example:local`.
-
-### Security boundary
-
-`container-policy.json` defines three `file://` credential routes. The
-entrypoint activates only the route selected by `AGENT_PROVIDER`; Gemini maps
-to `google_gemini` so Google GenAI receives its expected
-`GOOGLE_GEMINI_BASE_URL`. nono reads the file before applying Linux Landlock,
-denies the child access to `/run/secrets`, and swaps the phantom token for the
-real key only when forwarding to the selected provider.
-
-This protects the key from the agent process, its Python tools, and anything it
-launches. It does not protect against the Docker host, Docker administrators,
-container root, or the trusted nono supervisor: those are outside this threat
-boundary and can access the mounted secret. A Docker/Compose secret is still
-raw secret material at runtime; the security property is that it never enters
-the sandboxed agent's environment or memory. Never put a key in the Dockerfile,
-a build argument, or the image.
-
-## Publish the container
-
-`.github/workflows/publish-container.yml` builds Linux AMD64 and ARM64 images:
-
-- Pull requests build the image without publishing it.
-- Pushes to `main` publish `latest`, `main`, and a commit tag.
-- Tags such as `v1.2.0` publish semantic-version tags.
-- Manual runs are available through **Actions → Publish container image**.
-
-The workflow authenticates to `ghcr.io` with the repository's `GITHUB_TOKEN`;
-no registry password is required. The first published GHCR package may need to
-be made public once in the package settings before unauthenticated users can
-pull it.
 
 ## Run in the terminal
 
@@ -355,10 +243,4 @@ the agent cannot retry around the rule. The same tool follows the allowed
 - `main.py` provides a standalone interactive runner.
 - `web_app.py` exposes the agent through a small FastAPI JSON API.
 - `web/` contains the browser chat interface.
-- `Dockerfile` packages nono and the web interface as a non-root container.
-- `container-policy.json` brokers the mounted provider secret and denies the
-  sandboxed child access to `/run/secrets`.
-- `docker-entrypoint.sh` launches Uvicorn through `nono run`.
-- `compose.yaml` mounts the provider key for the nono supervisor.
-- `.github/workflows/publish-container.yml` publishes multi-platform GHCR images.
 - `assistant/__init__.py` exposes the agent to the `adk` CLI.
