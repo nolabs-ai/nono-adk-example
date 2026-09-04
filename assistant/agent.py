@@ -22,6 +22,7 @@ import urllib.request
 import zoneinfo
 
 from google.adk.agents import Agent
+from google.genai import types
 
 
 SUPPORTED_PROVIDERS = ("gemini", "openai", "anthropic")
@@ -34,6 +35,11 @@ PROVIDER_API_KEY_ENV = {
     "gemini": "GOOGLE_API_KEY",
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
+}
+PROVIDER_API_KEY_CANDIDATES = {
+    "gemini": ("GOOGLE_API_KEY", "GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"),
+    "openai": ("OPENAI_API_KEY",),
+    "anthropic": ("ANTHROPIC_API_KEY",),
 }
 
 
@@ -67,6 +73,37 @@ def provider_api_key_is_available() -> bool:
     return bool(os.environ.get(API_KEY_ENV))
 
 
+def provider_credential_probe() -> dict:
+    """Return redacted metadata about credentials available to this process."""
+    candidates = PROVIDER_API_KEY_CANDIDATES.get(AGENT_PROVIDER, (API_KEY_ENV,))
+    present = []
+    for name in candidates:
+        value = os.environ.get(name, "")
+        if not value:
+            continue
+        present.append(
+            {
+                "name": name,
+                "length": len(value),
+                "redacted": "*" * min(len(value), 8),
+            }
+        )
+    if not present:
+        return {
+            "status": "error",
+            "error": "No provider credential variable is visible to this process.",
+        }
+    return {
+        "status": "ok",
+        "provider": AGENT_PROVIDER,
+        "credentials": present,
+        "note": (
+            "Credential values are intentionally redacted. nono injects process-local "
+            "phantom credentials when launched with the matching --credential."
+        ),
+    }
+
+
 def _build_model():
     """Build an ADK-native model adapter without routing through LiteLLM."""
     if AGENT_PROVIDER == "gemini":
@@ -92,6 +129,32 @@ def _build_model():
             "Run `pip install -r requirements.txt`."
         ) from exc
     return AnthropicLlm(model=AGENT_MODEL)
+
+
+def _generate_content_config() -> types.GenerateContentConfig | None:
+    """Disable Gemini's adjustable content filters for this security demo.
+
+    The demo deliberately lets the model request risky-looking operations so
+    nono can demonstrate that the OS and network boundaries enforce policy.
+    Google's non-adjustable core-harm protections still apply.
+    """
+    if AGENT_PROVIDER != "gemini":
+        return None
+    categories = (
+        types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+        types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    )
+    return types.GenerateContentConfig(
+        safety_settings=[
+            types.SafetySetting(
+                category=category,
+                threshold=types.HarmBlockThreshold.OFF,
+            )
+            for category in categories
+        ]
+    )
 
 
 # --- Tools -----------------------------------------------------------------
@@ -359,6 +422,7 @@ def fetch_url(url: str) -> dict:
 
 root_agent = Agent(
     model=_build_model(),
+    generate_content_config=_generate_content_config(),
     name="local_assistant",
     description=(
         "A helpful local assistant that can tell the time, do arithmetic, and "
@@ -367,7 +431,8 @@ root_agent = Agent(
     instruction=(
         "You are a friendly, concise assistant running locally on the user's machine. "
         "When the user asks something a tool can answer (the current time, arithmetic, "
-        "listing a folder's contents, fetching an HTTP URL), call the appropriate tool rather "
+        "listing a folder's contents, fetching an HTTP URL, or inspecting credential metadata), "
+        "call the appropriate tool rather "
         "than guessing. When listing a folder, present the results readably (e.g. "
         "directories first, then files). "
         "Summarise tool results in plain language. If a tool returns an error, explain "
@@ -376,5 +441,5 @@ root_agent = Agent(
         'guidance in "message_for_user". Do not mention nono, a sandbox, or any '
         "implementation details. Do not retry the operation or suggest workarounds."
     ),
-    tools=[get_current_time, calculate, list_folder, fetch_url],
+    tools=[get_current_time, calculate, list_folder, fetch_url, provider_credential_probe],
 )

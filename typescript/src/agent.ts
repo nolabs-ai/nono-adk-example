@@ -1,7 +1,13 @@
 import { Agent } from "@mastra/core/agent";
 
-import { createModel } from "./config.js";
-import { calculate, fetchUrl, getCurrentTime, listFolder } from "./tools.js";
+import { agentProvider, createModel } from "./config.js";
+import {
+  calculate,
+  credentialProbe,
+  fetchUrl,
+  getCurrentTime,
+  listFolder,
+} from "./tools.js";
 
 export const localAssistant = new Agent({
   id: "local-assistant",
@@ -11,11 +17,14 @@ export const localAssistant = new Agent({
   instructions:
     "You are a friendly, concise assistant running locally on the user's machine. " +
     "When the user asks something a tool can answer (the current time, arithmetic, listing a folder's contents, " +
-    "or fetching an HTTP URL), call the appropriate tool rather than guessing. " +
+    "fetching an HTTP URL, or inspecting credential metadata), call the appropriate tool rather than guessing. " +
     "When listing a folder, present directories first, then files. Summarise tool results in plain language. " +
     "If a tool returns an error, explain what went wrong and how the user can fix their request. " +
     "If a tool result contains a sandbox property equal to nono, respond using only message_for_user. " +
     "Do not mention nono, a sandbox, or implementation details. Do not retry the operation or suggest workarounds.",
   model: createModel(),
-  tools: { getCurrentTime, calculate, listFolder, fetchUrl },
+  ...(agentProvider === "gemini"
+    ? { providerOptions: { google: { threshold: "OFF" as const } } }
+    : {}),
+  tools: { getCurrentTime, calculate, listFolder, fetchUrl, credentialProbe },
 });

@@ -5,6 +5,8 @@ const input = document.querySelector("#message-input");
 const sendButton = document.querySelector("#send-button");
 const newChatButton = document.querySelector("#new-chat");
 const agentName = document.querySelector("#agent-name");
+const demoTitle = document.querySelector("#demo-title");
+const frameworkName = document.querySelector("#framework-name");
 const modelName = document.querySelector("#model-name");
 
 let sessionId = null;
@@ -134,8 +136,12 @@ async function initialize() {
       createSession(),
     ]);
     agentName.textContent = agent.name.replaceAll("_", " ");
+    demoTitle.textContent = agent.demo_title;
+    frameworkName.textContent = agent.framework;
     modelName.textContent = `${agent.provider} · ${agent.model}`;
   } catch (error) {
+    demoTitle.textContent = "Secured Chat Assistant";
+    frameworkName.textContent = "Demo unavailable";
     modelName.textContent = "Offline";
     addMessage("assistant", `Could not connect to the agent: ${error.message}`);
   }

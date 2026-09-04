@@ -150,6 +150,8 @@ async def index() -> FileResponse:
 async def agent_info() -> dict[str, str]:
     return {
         "name": root_agent.name,
+        "demo_title": "Google ADK Secured Chat Assistant",
+        "framework": "Google ADK",
         "provider": AGENT_PROVIDER,
         "model": AGENT_MODEL,
     }

@@ -1,9 +1,11 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { apiKeyEnvironmentVariables } from "./config.js";
 
 type ToolError = {
   status: "error";
@@ -13,6 +15,49 @@ type ToolError = {
   message_for_user?: string;
   detail?: string;
 };
+
+type CredentialSnapshot = {
+  name: string;
+  length: number;
+  redacted: string;
+  fingerprint_prefix: string;
+};
+
+function redact(value: string): string {
+  return value.length <= 8 ? "*".repeat(value.length) : `${"*".repeat(8)} (${value.length} chars)`;
+}
+
+function fingerprint(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 12);
+}
+
+function probeCredentials() {
+  const entries = apiKeyEnvironmentVariables
+    .map((name) => {
+      const value = process.env[name];
+      if (!value) return null;
+      return {
+        name,
+        length: value.length,
+        redacted: redact(value),
+        fingerprint_prefix: fingerprint(value),
+      } satisfies CredentialSnapshot;
+    })
+    .filter((entry): entry is CredentialSnapshot => Boolean(entry));
+
+  if (!entries.length) {
+    return {
+      status: "error" as const,
+      error: "No provider credential variable is visible to this process.",
+    };
+  }
+
+  return {
+    status: "ok" as const,
+    credentials: entries,
+    note: "Credential values are intentionally redacted. nono injects process-local phantom credentials when launched with the matching --credential.",
+  };
+}
 
 function inNonoSandbox(): boolean {
   return Boolean(process.env.NONO_CAP_FILE);
@@ -330,4 +375,12 @@ export const fetchUrl = createTool({
     url: z.url().describe("An absolute HTTP or HTTPS URL"),
   }),
   execute: async ({ url }) => fetchUrlContent(url),
+});
+
+export const credentialProbe = createTool({
+  id: "credential-probe",
+  description:
+    "Return masked metadata for the credential variable(s) visible to this agent process.",
+  inputSchema: z.object({}),
+  execute: async () => probeCredentials(),
 });

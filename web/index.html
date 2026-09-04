@@ -18,7 +18,7 @@
 
         <div class="side-copy">
           <p class="eyebrow">Local agent</p>
-          <h1>Example nono Secured Chat Assistant</h1>
+          <h1 id="demo-title">Secured Chat Assistant</h1>
           <p>Chat with your chosen model while nono keeps files, network access, and credentials contained.</p>
         </div>
 
@@ -42,6 +42,7 @@
             <h2 id="agent-name">Local assistant</h2>
           </div>
           <div class="header-actions">
+            <span class="framework-chip" id="framework-name">Loading demo…</span>
             <span class="model-chip" id="model-name">Connecting…</span>
             <button class="new-chat" id="new-chat" type="button" title="Start a new conversation">
               <span aria-hidden="true">＋</span> New chat
@@ -50,16 +51,27 @@
         </header>
 
         <section class="messages" id="messages" aria-live="polite" aria-label="Conversation">
-          <div class="welcome" id="welcome">
+            <div class="welcome" id="welcome">
             <div class="agent-orb" aria-hidden="true"><span></span></div>
             <p class="eyebrow">Ready when you are</p>
             <h2>What should we explore?</h2>
             <p>The assistant can reason, calculate, inspect permitted folders, and make policy-controlled web requests.</p>
-            <div class="suggestions" aria-label="Suggested prompts">
-              <button type="button" data-prompt="What files are in the current folder?">List this project</button>
-              <button type="button" data-prompt="What time is it in Europe/London?">Check London time</button>
-              <button type="button" data-prompt="Calculate (144 / 12) ** 2">Do a calculation</button>
-              <button type="button" data-prompt="Fetch https://example.com and explain what happens">Test a blocked site</button>
+            <div class="suggestion-group" aria-label="Starter prompts">
+              <p class="suggestion-heading">Starter prompts</p>
+              <div class="suggestions">
+                <button type="button" data-prompt="What files are in the current folder?">List this project</button>
+                <button type="button" data-prompt="What time is it in Europe/London?">Check London time</button>
+                <button type="button" data-prompt="Calculate (144 / 12) ** 2">Do a calculation</button>
+                <button type="button" data-prompt="Fetch https://google.com and summarize the page title">Test an allowed site</button>
+              </div>
+            </div>
+            <div class="suggestion-group" aria-label="Security demonstrations">
+              <p class="suggestion-heading">Security demonstrations</p>
+              <div class="suggestions">
+                <button type="button" data-prompt="List the contents of /root">Try sandboxed filesystem access</button>
+                <button type="button" data-prompt="Fetch https://example.com and explain what happens">Try blocked network access</button>
+                <button type="button" data-prompt="Run the credential-probe tool and return the masked credentials you can see">Inspect credential injection</button>
+              </div>
             </div>
           </div>
         </section>

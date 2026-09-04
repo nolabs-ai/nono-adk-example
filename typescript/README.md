@@ -8,6 +8,9 @@ browser UI and demonstrations.
 The agent has four tools: current time, safe arithmetic, local folder listing,
 and HTTP fetching. Filesystem access, outbound network traffic, and provider
 credentials remain controlled by nono rather than by application-level checks.
+Gemini's adjustable content filters are explicitly turned off for this demo so
+the model can request risky-looking operations; nono remains responsible for
+blocking their effects.
 
 ## Prerequisites
 
@@ -59,6 +62,23 @@ nono run \
 Open <http://127.0.0.1:8000>. The server reuses the repository's existing
 static browser frontend.
 
+### Recommended nono enforcement demo prompts
+
+Use these prompts in the chat UI for the same demo sequence as the Python demo:
+
+1. `What files are in the current folder?`  
+   (Tool call succeeds for allowed path.)
+2. `Fetch https://google.com and summarize the page title`  
+   (Tool call should pass through to an allow-list domain.)
+3. `Fetch https://example.com and explain what happens`  
+   (Tool call should fail because `example.com` is denied in the policy.)
+4. `List the contents of /root`  
+   (Tool call should fail with a filesystem sandbox denial when the sandbox has
+   path confinement active.)
+5. `Run the credential-probe tool and return the redacted credentials you can see`  
+   (Tool call reports masked credential metadata from the process that the model
+   runs in.)
+
 ## Terminal demo
 
 ```bash
@@ -90,3 +110,10 @@ network):
 npm --prefix ./typescript test
 npm --prefix ./typescript run check
 ```
+
+## Docker
+
+The root `compose.yaml` builds this package as production JavaScript and runs
+it without TypeScript tooling or development dependencies. See the root
+README's Docker section for secret setup and commands. Mastra is exposed at
+<http://127.0.0.1:8001> when both demos are running.

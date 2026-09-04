@@ -21,6 +21,10 @@ The demo shows three parts of nono working together:
 
 The example ADK agent is named `local_assistant` and has tools for telling the
 time, evaluating basic arithmetic, listing a folder, and fetching an HTTP URL.
+For Gemini, the demo explicitly turns off all
+[adjustable content filters](https://ai.google.dev/gemini-api/docs/safety-settings)
+so the model can request risky-looking operations and nono can demonstrate the
+enforcement boundary. Google's non-adjustable core-harm protections still apply.
 
 ## Prerequisites
 
@@ -86,6 +90,33 @@ nono run --profile ./policy.json --allow-cwd --credential anthropic -- \
   .venv/bin/python3 -m uvicorn web_app:app --host 127.0.0.1 --port 8000
 ```
 
+## Run both demos with Docker
+
+Docker Compose builds and runs both implementations with the same provider and
+credential: Google ADK at [http://127.0.0.1:8000](http://127.0.0.1:8000) and
+Mastra at [http://127.0.0.1:8001](http://127.0.0.1:8001).
+
+First write the selected provider key to a local, ignored file and restrict its
+permissions. For Gemini:
+
+```bash
+security find-generic-password -w -s nono -a gemini > .docker-secret.gemini
+chmod 600 .docker-secret.gemini
+```
+
+Then start both services:
+
+```bash
+PROVIDER_API_KEY_FILE="$PWD/.docker-secret.gemini" \
+AGENT_PROVIDER=gemini \
+docker compose up --build
+```
+
+The secret is mounted for the outer nono process to broker, but each agent is
+denied access to `/run/secrets`. To run only one implementation, append `agent`
+or `mastra` to the Compose command. `PORT` changes the ADK host port and
+`MASTRA_PORT` changes the Mastra host port.
+
 ## Run the web demo
 
 Start the local web server inside nono:
@@ -114,10 +145,31 @@ Restart the server after changing the provider or model.
 
 Then open [http://127.0.0.1:8000](http://127.0.0.1:8000). The selected provider
 and model appear in the header. Each browser tab gets its own in-memory
-conversation, and **New chat** starts a fresh one. The web UI
-uses the same agent and tools as the terminal demo; only the presentation layer
-is different. The server listens on localhost, and port 8000 is explicitly
-allowed by `policy.json`.
+conversation, and **New chat** starts a fresh one. The web UI uses the same
+agent and tools as the terminal demo; only the presentation layer is different.
+The server listens on localhost, and port 8000 is explicitly allowed by
+`policy.json`.
+
+### Recommended nono enforcement demo prompts
+
+Use these prompts in the chat UI or terminal to show real enforcement boundaries.
+
+1. `List this project`  
+   (Tool call succeeds for allowed path.)
+
+2. `Fetch https://google.com and summarize the page title`  
+   (Tool call should pass through to an allow-list domain.)
+
+3. `Fetch https://example.com and explain what happens`  
+   (Tool call should fail because `example.com` is denied in the policy.)
+
+4. `List the contents of /root`  
+   (Tool call should fail with a filesystem sandbox denial when the sandbox has
+   path confinement active.)
+
+5. `Run the credential-probe tool and return the redacted credentials you can see`  
+   (Tool call reports masked credential metadata from the process that the model
+   runs in.)
 
 ## Run in the terminal
 

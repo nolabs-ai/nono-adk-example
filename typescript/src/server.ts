@@ -6,9 +6,11 @@ import express from "express";
 import { agentModel, agentProvider } from "./config.js";
 import { ChatSessions } from "./chat.js";
 
-const host = "127.0.0.1";
+const host = process.env.HOST || "127.0.0.1";
 const port = Number.parseInt(process.env.PORT || "8000", 10);
-const webDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web");
+const webDirectory = process.env.WEB_DIR
+  ? path.resolve(process.env.WEB_DIR)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web");
 const sessions = new ChatSessions();
 const app = express();
 
@@ -18,7 +20,13 @@ app.use("/static", express.static(webDirectory));
 app.get("/", (_request, response) => response.sendFile(path.join(webDirectory, "index.html")));
 
 app.get("/api/agent", (_request, response) => {
-  response.json({ name: "local_assistant", provider: agentProvider, model: agentModel });
+  response.json({
+    name: "local_assistant",
+    demo_title: "Mastra Secured Chat Assistant",
+    framework: "Mastra",
+    provider: agentProvider,
+    model: agentModel,
+  });
 });
 
 app.post("/api/sessions", (_request, response) => {

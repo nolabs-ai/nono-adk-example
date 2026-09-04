@@ -25,6 +25,33 @@ services:
     init: true
     restart: unless-stopped
 
+  mastra:
+    image: ${MASTRA_IMAGE:-ghcr.io/nolabs-ai/nono-mastra-example:latest}
+    build:
+      context: .
+      dockerfile: typescript/Dockerfile
+    ports:
+      - "127.0.0.1:${MASTRA_PORT:-8001}:8000"
+    environment:
+      AGENT_PROVIDER: ${AGENT_PROVIDER:-gemini}
+      AGENT_MODEL: ${AGENT_MODEL:-}
+      MASTRA_TELEMETRY_DISABLED: "1"
+      NONO_NO_UPDATE_CHECK: "1"
+      XDG_STATE_HOME: /nono-state
+    secrets:
+      - source: provider_api_key
+        target: provider_api_key
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /nono-state:uid=10001,gid=10001,mode=0700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    restart: unless-stopped
+
 secrets:
   provider_api_key:
     file: ${PROVIDER_API_KEY_FILE:?Set PROVIDER_API_KEY_FILE to an absolute key-file path}

@@ -3,6 +3,8 @@
 .agents
 .codex
 .venv
+node_modules
+**/node_modules
 __pycache__
 *.py[cod]
 *.db
@@ -12,6 +14,7 @@ __pycache__
 .env
 assistant/.env
 assistant/.adk
+typescript/.env
 assets
 demo.yml
 policy.json

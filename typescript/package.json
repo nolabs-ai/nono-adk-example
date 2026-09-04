@@ -5,6 +5,7 @@
   "type": "module",
   "description": "A provider-neutral Mastra agent running inside a nono sandbox",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "cli": "tsx src/cli.ts",
     "web": "tsx src/server.ts",
     "check": "tsc --noEmit",

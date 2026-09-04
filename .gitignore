@@ -17,4 +17,5 @@ venv/
 # Node / Mastra
 node_modules/
 typescript/.env
+typescript/dist/
 .mastra/
