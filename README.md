@@ -1,5 +1,8 @@
 # nono Google ADK demo
 
+> **Also included:** a parallel [Mastra / TypeScript example](typescript/README.md)
+> with the same tools, providers, browser UI, and nono containment checks.
+
 This repository demonstrates running a local [Google Agent Development Kit
 (ADK)](https://google.github.io/adk-docs/) agent inside a
 [nono](https://github.com/nolabs-ai/nono) security sandbox.

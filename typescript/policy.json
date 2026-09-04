@@ -1,0 +1,53 @@
+{
+  "extends": [
+    "node-dev"
+  ],
+  "meta": {
+    "name": "mastra",
+    "version": "1.0.0",
+    "description": "Mastra agent with brokered model traffic",
+    "author": null
+  },
+  "filesystem": {
+    "allow": [],
+    "read": [],
+    "write": [],
+    "allow_file": [],
+    "read_file": [],
+    "write_file": [],
+    "unix_socket": [],
+    "unix_socket_bind": [],
+    "unix_socket_dir": [],
+    "unix_socket_dir_bind": [],
+    "unix_socket_subtree": [],
+    "unix_socket_subtree_bind": [],
+    "deny": [],
+    "bypass_protection": [],
+    "suppress_save_prompt": []
+  },
+  "network": {
+    "block": false,
+    "allow_http2": false,
+    "allow_domain": [
+      "google.com",
+      "*.google.com",
+      "api.openai.com",
+      "api.anthropic.com"
+    ],
+    "deny_domain": [
+      "example.com"
+    ],
+    "open_port": [],
+    "listen_port": [
+      8000
+    ],
+    "connect_port": [],
+    "custom_credentials": {},
+    "tls_intercept": null,
+    "upstream_proxy": null,
+    "upstream_bypass": []
+  },
+  "workdir": {
+    "access": "none"
+  }
+}

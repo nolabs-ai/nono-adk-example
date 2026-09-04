@@ -13,3 +13,8 @@ venv/
 # ADK / local session artifacts
 *.db
 .adk/
+
+# Node / Mastra
+node_modules/
+typescript/.env
+.mastra/

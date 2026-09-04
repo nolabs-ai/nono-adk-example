@@ -1,0 +1,31 @@
+{
+  "name": "nono-mastra-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A provider-neutral Mastra agent running inside a nono sandbox",
+  "scripts": {
+    "cli": "tsx src/cli.ts",
+    "web": "tsx src/server.ts",
+    "check": "tsc --noEmit",
+    "test": "tsx --test test/tools.test.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.49",
+    "@ai-sdk/google": "^4.0.63",
+    "@ai-sdk/openai": "^4.0.58",
+    "@mastra/core": "^1.64.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.3.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22.22"
+  }
+}
