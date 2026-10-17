@@ -72,7 +72,7 @@ Use these prompts in the chat UI for the same demo sequence as the Python demo:
    (Tool call should pass through to an allow-list domain.)
 3. `Fetch https://example.com and explain what happens`  
    (Tool call should fail because `example.com` is denied in the policy.)
-4. `List the contents of /root`  
+4. `List the contents of/private/var/root`  
    (Tool call should fail with a filesystem sandbox denial when the sandbox has
    path confinement active.)
 5. `Run the credential-probe tool and return the redacted credentials you can see`  

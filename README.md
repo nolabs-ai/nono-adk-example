@@ -154,7 +154,7 @@ The server listens on localhost, and port 8000 is explicitly allowed by
 
 Use these prompts in the chat UI or terminal to show real enforcement boundaries.
 
-1. `List this project`  
+1. `Say hello`  
    (Tool call succeeds for allowed path.)
 
 2. `Fetch https://google.com and summarize the page title`  
@@ -163,7 +163,7 @@ Use these prompts in the chat UI or terminal to show real enforcement boundaries
 3. `Fetch https://example.com and explain what happens`  
    (Tool call should fail because `example.com` is denied in the policy.)
 
-4. `List the contents of /root`  
+4. `List the contents of/private/var/root`  
    (Tool call should fail with a filesystem sandbox denial when the sandbox has
    path confinement active.)
 
